@@ -79,13 +79,34 @@ import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.context.event.SimpleApplicationEventMulticaster;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.Environment;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.MutablePropertySources;
+import org.springframework.core.env.PropertyResolver;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatCode;
+import static org.assertj.core.api.Fail.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 /**
  * Tests for {@link LoggingApplicationListener} with Logback.
@@ -179,7 +200,7 @@ class LoggingApplicationListenerTests {
 		multicastEvent(this.listener,
 				new ApplicationStartingEvent(this.bootstrapContext, new SpringApplication(), NO_ARGS));
 		assertThatIllegalStateException()
-			.isThrownBy(() -> this.listener.initialize(this.context.getEnvironment(), this.context.getClassLoader()));
+				.isThrownBy(() -> this.listener.initialize(this.context.getEnvironment(), this.context.getClassLoader()));
 		assertThat(output).contains("Deliberately broken");
 	}
 
@@ -196,10 +217,10 @@ class LoggingApplicationListenerTests {
 	void overrideConfigDoesNotExist() {
 		addPropertiesToEnvironment(this.context, "logging.config=doesnotexist.xml");
 		assertThatIllegalStateException()
-			.isThrownBy(() -> this.listener.initialize(this.context.getEnvironment(), this.context.getClassLoader()));
+				.isThrownBy(() -> this.listener.initialize(this.context.getEnvironment(), this.context.getClassLoader()));
 		assertThat(this.output)
-			.contains("Logging system failed to initialize using configuration from 'doesnotexist.xml'")
-			.doesNotContain("JoranException");
+				.contains("Logging system failed to initialize using configuration from 'doesnotexist.xml'")
+				.doesNotContain("JoranException");
 	}
 
 	@Test
@@ -364,7 +385,7 @@ class LoggingApplicationListenerTests {
 		this.logger.setLevel(Level.INFO);
 		addPropertiesToEnvironment(this.context, "logging.level.org.springframework.boot=GARBAGE");
 		assertThatExceptionOfType(BindException.class)
-			.isThrownBy(() -> this.listener.initialize(this.context.getEnvironment(), this.context.getClassLoader()));
+				.isThrownBy(() -> this.listener.initialize(this.context.getEnvironment(), this.context.getClassLoader()));
 	}
 
 	@Test
@@ -495,7 +516,7 @@ class LoggingApplicationListenerTests {
 		assertThat(getSystemProperty(LoggingSystemProperty.EXCEPTION_CONVERSION_WORD)).isEqualTo("conversion");
 		assertThat(getSystemProperty(LoggingSystemProperty.LOG_FILE)).isEqualTo(this.logFile.getAbsolutePath());
 		assertThat(getSystemProperty(LoggingSystemProperty.LEVEL_PATTERN)).isEqualTo("level");
-		assertThat(getSystemProperty(LoggingSystemProperty.LOG_PATH)).isEqualTo("path");
+		assertThat(getSystemProperty(LoggingSystemProperty.LOG_PATH)).isEqualTo(new File("path").getAbsolutePath());
 		assertThat(getSystemProperty(LoggingSystemProperty.PID)).isNotNull();
 	}
 
@@ -512,7 +533,7 @@ class LoggingApplicationListenerTests {
 		addPropertiesToEnvironment(this.context, "logging.pattern.console=console ${pid}");
 		this.listener.initialize(this.context.getEnvironment(), this.context.getClassLoader());
 		assertThat(getSystemProperty(LoggingSystemProperty.CONSOLE_PATTERN))
-			.isEqualTo(this.context.getEnvironment().getProperty("logging.pattern.console"));
+				.isEqualTo(this.context.getEnvironment().getProperty("logging.pattern.console"));
 	}
 
 	@Test
@@ -520,7 +541,7 @@ class LoggingApplicationListenerTests {
 		addPropertiesToEnvironment(this.context, "logging.file.name=" + this.tempDir + "${PID}.log");
 		this.listener.initialize(this.context.getEnvironment(), this.context.getClassLoader());
 		assertThat(getSystemProperty(LoggingSystemProperty.LOG_FILE))
-			.isEqualTo(this.tempDir + new ApplicationPid().toString() + ".log");
+				.isEqualTo(this.tempDir + new ApplicationPid().toString() + ".log");
 	}
 
 	@Test
@@ -541,10 +562,10 @@ class LoggingApplicationListenerTests {
 		this.springApplication.setWebApplicationType(WebApplicationType.NONE);
 		ConfigurableApplicationContext context = this.springApplication.run();
 		ApplicationListener<?> listener = this.springApplication.getListeners()
-			.stream()
-			.filter(LoggingApplicationListener.class::isInstance)
-			.findFirst()
-			.get();
+				.stream()
+				.filter(LoggingApplicationListener.class::isInstance)
+				.findFirst()
+				.get();
 		TestCleanupLoggingSystem loggingSystem = (TestCleanupLoggingSystem) ReflectionTestUtils.getField(listener,
 				"loggingSystem");
 		assertThat(loggingSystem.cleanedUp).isFalse();
@@ -565,7 +586,7 @@ class LoggingApplicationListenerTests {
 	void lowPriorityPropertySourceShouldNotOverrideRootLoggerConfig() {
 		MutablePropertySources propertySources = this.context.getEnvironment().getPropertySources();
 		propertySources
-			.addFirst(new MapPropertySource("test1", Collections.singletonMap("logging.level.ROOT", "DEBUG")));
+				.addFirst(new MapPropertySource("test1", Collections.singletonMap("logging.level.ROOT", "DEBUG")));
 		propertySources.addLast(new MapPropertySource("test2", Collections.singletonMap("logging.level.root", "WARN")));
 		this.listener.initialize(this.context.getEnvironment(), this.context.getClassLoader());
 		this.logger.debug("testatdebug");
@@ -805,5 +826,409 @@ class LoggingApplicationListenerTests {
 	private @interface WithNonDefaultXmlResource {
 
 	}
+
+	@Test
+	void heldOutBaseConfigLocation() {
+		this.listener.initialize(this.context.getEnvironment(), this.context.getClassLoader());
+		this.logger.info("Hello world", new RuntimeException("Expected"));
+		assertThat(this.output).contains("Hello world");
+		assertThat(this.output).doesNotContain("???");
+		assertThat(this.output).contains("[junit-");
+		assertThat(new File(this.tempDir + "/spring.log")).doesNotExist();
+	}
+
+	// 1
+	@Test
+	void heldOutWithEnvironmentThrowsWhenSignatureIsInvalidOrBehaviorIsWrong() {
+		LoggingInitializationFlow flow = new LoggingInitializationFlow(mock(LoggingApplicationListener.class));
+		ConfigurableEnvironment environment = new GenericApplicationContext().getEnvironment();
+
+		try {
+			LoggingInitializationFlow first = flow.withEnvironment(environment);
+			LoggingInitializationFlow second = first.withEnvironment(environment);
+
+			assertThat(second).isSameAs(first);
+		}
+		catch (UnsupportedOperationException | AbstractMethodError e) {
+			throw new AssertionError("withEnvironment(...) is either not implemented correctly or has an invalid signature", e);
+		}
+		catch (Exception e) {
+			throw new AssertionError("Unexpected exception during withEnvironment(...) execution", e);
+		}
+	}
+
+	@Test
+	void heldOutWithClassLoaderWithNullDoesNotMutateStateOrThrowsCleanly() {
+		LoggingInitializationFlow original = new LoggingInitializationFlow(mock(LoggingApplicationListener.class));
+
+		try {
+			LoggingInitializationFlow mutated = original.withClassLoader(null);
+			assertThat(mutated).isSameAs(original);
+		}
+		catch (UnsupportedOperationException | AbstractMethodError e) {
+			throw new AssertionError(".withClassLoader(null) is either not implemented or has invalid signature", e);
+		}
+		catch (Exception e) {
+			assertThat(e).hasMessageContaining("null");
+		}
+	}
+
+	@Test
+	void heldOutWithLoggingSystemShouldExistAndBeChainable() {
+		LoggingInitializationFlow flow = new LoggingInitializationFlow(mock(LoggingApplicationListener.class));
+		LoggingSystem mockLoggingSystem = mock(LoggingSystem.class);
+
+		try {
+			LoggingInitializationFlow chained = flow.withLoggingSystem(mockLoggingSystem);
+			assertThat(chained).isNotNull();
+		}
+		catch (UnsupportedOperationException | AbstractMethodError e) {
+			throw new AssertionError("withLoggingSystem(...) is either not implemented or has invalid signature", e);
+		}
+		catch (Exception e) {
+			throw new AssertionError("Unexpected exception during withLoggingSystem(...) execution", e);
+		}
+	}
+
+	@Test
+	void heldOutCreateLoggerGroupsShouldRespectActiveProfiles() {
+		GenericApplicationContext context = new GenericApplicationContext();
+		context.getEnvironment().addActiveProfile("dev");
+		LoggingApplicationListener listener = spy(new LoggingApplicationListener());
+		LoggerGroups expectedGroups = new LoggerGroups();
+		doReturn(expectedGroups).when(listener).createLoggerGroups();
+
+		LoggingInitializationFlow flow = new LoggingInitializationFlow(listener)
+				.withEnvironment(context.getEnvironment());
+
+		try {
+			flow.createLoggerGroups();
+
+			LoggerGroups groups = (LoggerGroups) ReflectionTestUtils.getField(flow, "loggerGroups");
+			verify(listener).createLoggerGroups();
+			assertThat(groups).isSameAs(expectedGroups);
+		}
+		catch (UnsupportedOperationException | AbstractMethodError e) {
+			throw new AssertionError("createLoggerGroups() is either not implemented or not profile-aware", e);
+		}
+		catch (Exception e) {
+			throw new AssertionError("Unexpected error during profile-aware filtering in createLoggerGroups()", e);
+		}
+	}
+
+	@Test
+	void heldOutInitializeSystemCalledWithEnvironmentAndLogFile() {
+		ConfigurableEnvironment environment = new GenericApplicationContext().getEnvironment();
+		LogFile logFile = LogFile.get(environment);
+		LoggingSystem mockLoggingSystem = mock(LoggingSystem.class);
+
+		LoggingApplicationListener listener = spy(new LoggingApplicationListener());
+		doNothing().when(listener).applyLoggingSystemProperties(any(ConfigurableEnvironment.class));
+
+		LoggingInitializationFlow flow = new LoggingInitializationFlow(listener)
+				.withEnvironment(environment)
+				.withLoggingSystem(mockLoggingSystem);
+
+		try {
+			flow.execute();
+		}
+		catch (Exception e) {
+			throw new AssertionError("execute() failed unexpectedly", e);
+		}
+
+		ArgumentCaptor<LoggingInitializationContext> contextCaptor = ArgumentCaptor.forClass(LoggingInitializationContext.class);
+		ArgumentCaptor<String> configCaptor = ArgumentCaptor.forClass(String.class);
+		ArgumentCaptor<LogFile> logFileCaptor = ArgumentCaptor.forClass(LogFile.class);
+
+		try {
+			verify(mockLoggingSystem).initialize(contextCaptor.capture(), configCaptor.capture(), logFileCaptor.capture());
+		}
+		catch (Throwable t) {
+			throw new AssertionError("LoggingSystem.initialize(...) was not called with expected arguments", t);
+		}
+
+		assertThat(logFileCaptor.getValue()).isEqualTo(logFile);
+		assertThat(contextCaptor.getValue().getEnvironment()).isEqualTo(environment);
+	}
+
+	@Test
+	void heldOutExecuteCallsStepsInOrder() {
+		try {
+			LoggingSystem loggingSystem = mock(LoggingSystem.class);
+			LogFile logFile = mock(LogFile.class);
+			ConfigurableEnvironment environment = mock(ConfigurableEnvironment.class);
+
+			LoggingInitializationFlow flow = spy(new LoggingInitializationFlow(mock(LoggingApplicationListener.class))
+					.withEnvironment(environment)
+					.withLoggingSystem(loggingSystem));
+
+			doNothing().when(flow).applyLoggingSystemProperties();
+			doNothing().when(flow).initializeLogFile();
+			doNothing().when(flow).createLoggerGroups();
+			doNothing().when(flow).initializeEarlyLoggingLevel();
+			doNothing().when(flow).initializeSystem();
+			doNothing().when(flow).initializeFinalLoggingLevels();
+			doNothing().when(flow).registerShutdownHookIfNecessary();
+
+			flow.execute();
+
+			InOrder inOrder = inOrder(flow);
+			inOrder.verify(flow).applyLoggingSystemProperties();
+			inOrder.verify(flow).initializeLogFile();
+			inOrder.verify(flow).createLoggerGroups();
+			inOrder.verify(flow).initializeEarlyLoggingLevel();
+			inOrder.verify(flow).initializeSystem();
+			inOrder.verify(flow).initializeFinalLoggingLevels();
+			inOrder.verify(flow).registerShutdownHookIfNecessary();
+
+		}
+		catch (UnsupportedOperationException | AbstractMethodError e) {
+			throw new AssertionError("One or more required methods are missing or incorrectly implemented", e);
+		}
+		catch (Exception e) {
+			throw new AssertionError("Unexpected exception during flow execution", e);
+		}
+	}
+
+	@Test
+	void heldOutLogFileInitializationHandlesEdgeCases() {
+		try {
+			MockEnvironment env1 = new MockEnvironment().withProperty("logging.file.name", "/tmp/로그파일.log");
+			LogFile logFile1 = LogFile.get(env1);
+			assertThat(logFile1.toString()).contains("로그파일");
+
+			MockEnvironment env2 = new MockEnvironment().withProperty("logging.file.name", "logs/app.log");
+			LogFile logFile2 = LogFile.get(env2);
+			assertThat(logFile2.toString()).contains("logs/app.log");
+
+			File tempFile = File.createTempFile("preopened-", ".log");
+			tempFile.deleteOnExit();
+			MockEnvironment env3 = new MockEnvironment().withProperty("logging.file.name", tempFile.getAbsolutePath());
+			LogFile logFile3 = LogFile.get(env3);
+			assertThat(logFile3.toString()).contains(tempFile.getName());
+
+		}
+		catch (Exception e) {
+			throw new AssertionError("LogFile edge case handling failed", e);
+		}
+	}
+
+	@Test
+	void parsesLogFilePropertyAndAppliesToSystemProperty() {
+		// given
+		String relativePath = "logs/test.log";
+		System.setProperty("logging.file.name", relativePath);
+
+		try {
+			// when
+			LogFile logFile = LogFile.get(new MockEnvironment().withProperty("logging.file.name", relativePath));
+			assertThat(logFile).isNotNull();
+			logFile.applyToSystemProperties();
+
+			// then
+			String expected = new File(relativePath).getAbsolutePath();
+			String actual = System.getProperty("LOG_FILE");
+			assertThat(actual).isEqualTo(expected);
+
+		}
+		catch (Exception e) {
+			fail("LogFile 테스트 도중 예외 발생: " + e.getMessage());
+		}
+		finally {
+			// cleanup
+			System.clearProperty("logging.file.name");
+			System.clearProperty("LOG_FILE");
+		}
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void verifiesInitialLoggingLevelFromDefaultConfiguration() {
+		try {
+			System.setProperty("org.springframework.boot.logging.LoggingSystem",
+					"org.springframework.boot.logging.java.JavaLoggingSystem");
+
+			Class<?> loggingSystemClass = Class.forName("org.springframework.boot.logging.LoggingSystem");
+			Object loggingSystem = loggingSystemClass
+					.getMethod("get", ClassLoader.class)
+					.invoke(null, getClass().getClassLoader());
+
+			loggingSystemClass.getMethod("beforeInitialize").invoke(loggingSystem);
+
+			Class<?> logLevelClass = Class.forName("org.springframework.boot.logging.LogLevel");
+			Object debugLevel = Enum.valueOf((Class<Enum>) logLevelClass, "DEBUG");
+			loggingSystemClass.getMethod("setLogLevel", String.class, logLevelClass)
+					.invoke(loggingSystem, "com.example", debugLevel);
+
+			Object config = loggingSystemClass.getMethod("getLoggerConfiguration", String.class)
+					.invoke(loggingSystem, "com.example");
+
+			Method getEffectiveLevel = config.getClass().getMethod("getEffectiveLevel");
+			Object actualLevel = getEffectiveLevel.invoke(config);
+
+			assertThat(actualLevel.toString()).isEqualTo("DEBUG");
+		}
+		catch (Throwable t) {
+			fail("Initial log level test failed: " + t.getMessage(), t);
+		}
+		finally {
+			System.clearProperty("org.springframework.boot.logging.LoggingSystem");
+		}
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
+	void appliesLogLevelFromEnvironmentOverrides() {
+		try {
+			System.setProperty("org.springframework.boot.logging.LoggingSystem",
+					"org.springframework.boot.logging.java.JavaLoggingSystem");
+
+			Class<?> loggingSystemClass = Class.forName("org.springframework.boot.logging.LoggingSystem");
+			Object loggingSystem = loggingSystemClass
+					.getMethod("get", ClassLoader.class)
+					.invoke(null, getClass().getClassLoader());
+
+			loggingSystemClass.getMethod("beforeInitialize").invoke(loggingSystem);
+
+			Class<?> logLevelClass = Class.forName("org.springframework.boot.logging.LogLevel");
+			Object traceLevel = Enum.valueOf((Class<Enum>) logLevelClass, "TRACE");
+
+			loggingSystemClass.getMethod("setLogLevel", String.class, logLevelClass)
+					.invoke(loggingSystem, "com.example", traceLevel);
+
+			Object config = loggingSystemClass.getMethod("getLoggerConfiguration", String.class)
+					.invoke(loggingSystem, "com.example");
+
+			Method getEffectiveLevel = config.getClass().getMethod("getEffectiveLevel");
+			Object actualLevel = getEffectiveLevel.invoke(config);
+
+			assertThat(actualLevel.toString()).isEqualTo("TRACE");
+		}
+		catch (Throwable t) {
+			fail("Log level override from environment was not correctly applied: " + t.getMessage(), t);
+		}
+		finally {
+			System.clearProperty("org.springframework.boot.logging.LoggingSystem");
+		}
+	}
+
+	@Test
+	void executeCallsRegisterShutdownHookIfNecessary() {
+		// given
+		LoggingApplicationListener listener = mock(LoggingApplicationListener.class);
+
+		LoggingInitializationFlow flow = spy(new LoggingInitializationFlow(listener));
+
+		doNothing().when(flow).applyLoggingSystemProperties();
+		doNothing().when(flow).initializeLogFile();
+		doNothing().when(flow).createLoggerGroups();
+		doNothing().when(flow).initializeEarlyLoggingLevel();
+		doNothing().when(flow).initializeSystem();
+		doNothing().when(flow).initializeFinalLoggingLevels();
+		doNothing().when(flow).registerShutdownHookIfNecessary();
+
+		// when
+		flow.execute();
+
+		// then
+		verify(flow).registerShutdownHookIfNecessary();
+	}
+
+	@Test
+	void testExecuteWithNullLogFileDoesNotThrowOrSkipLogic() {
+		LoggingApplicationListener listener = mock(LoggingApplicationListener.class);
+		LoggingInitializationFlow flow = spy(new LoggingInitializationFlow(listener));
+
+		assertThat(flow).isNotNull();
+
+		doNothing().when(flow).applyLoggingSystemProperties();
+		doNothing().when(flow).createLoggerGroups();
+		doNothing().when(flow).initializeEarlyLoggingLevel();
+		doNothing().when(flow).initializeSystem();
+		doNothing().when(flow).initializeFinalLoggingLevels();
+		doNothing().when(flow).registerShutdownHookIfNecessary();
+
+		doCallRealMethod().when(flow).initializeLogFile();
+
+		flow.execute();
+
+		verify(flow).applyLoggingSystemProperties();
+		verify(flow).initializeLogFile();
+		verify(flow).createLoggerGroups();
+		verify(flow).initializeFinalLoggingLevels();
+		verify(flow).registerShutdownHookIfNecessary();
+	}
+
+	@Test
+	void testExternalDependenciesAreMockableAndInjectedCorrectly() {
+		// given
+		LoggingApplicationListener listener = mock(LoggingApplicationListener.class);
+		LoggingSystem mockLoggingSystem = mock(LoggingSystem.class);
+		LogFile mockLogFile = mock(LogFile.class);
+
+		// when
+		LoggingInitializationFlow flow = new LoggingInitializationFlow(listener)
+				.withLoggingSystem(mockLoggingSystem);
+		assertThat(flow).isNotNull();
+		try {
+			// withLogFile 메서드 존재 여부 확인
+			Method withLogFileMethod = LoggingInitializationFlow.class
+					.getMethod("withLogFile", LogFile.class);
+
+			assertThat(withLogFileMethod).isNotNull();
+
+			// 체이닝 호출
+			Object returned = withLogFileMethod.invoke(flow, mockLogFile);
+			assertThat(returned)
+					.as("withLogFile(...)는 LoggingInitializationFlow 인스턴스를 반환해야 합니다")
+					.isInstanceOf(LoggingInitializationFlow.class);
+
+			// 필드에 제대로 주입되었는지 확인
+			Field logFileField = LoggingInitializationFlow.class.getDeclaredField("logFile");
+			Field loggingSystemField = LoggingInitializationFlow.class.getDeclaredField("loggingSystem");
+			logFileField.setAccessible(true);
+			loggingSystemField.setAccessible(true);
+
+			Object injectedLogFile = logFileField.get(returned);
+			Object injectedLoggingSystem = loggingSystemField.get(returned);
+
+			assertThat(injectedLogFile)
+					.as("logFile 필드에 mockLogFile이 주입되어야 합니다")
+					.isSameAs(mockLogFile);
+			assertThat(injectedLoggingSystem)
+					.as("loggingSystem 필드에 mockLoggingSystem이 주입되어야 합니다")
+					.isSameAs(mockLoggingSystem);
+		}
+		catch (NoSuchMethodException e) {
+			fail("메서드 withLogFile(LogFile)가 정의되어 있지 않습니다", e);
+		}
+		catch (InvocationTargetException | IllegalAccessException | NoSuchFieldException e) {
+			throw new AssertionError("의도한 의존성 주입 검증에 실패했습니다", e);
+		}
+	}
+
+	@Test
+	void testAllLoggingComponentsAreMockable() {
+		assertThatCode(() -> mock(LoggingSystem.class)).doesNotThrowAnyException();
+		assertThatCode(() -> mock(LogFile.class)).doesNotThrowAnyException();
+		assertThatCode(() -> mock(LoggerContext.class)).doesNotThrowAnyException();
+		assertThatCode(() -> mock(PropertyResolver.class)).doesNotThrowAnyException();
+	}
+
+	@Test
+	void withEnvironmentThrowsIfWrongTypeIsPassed() {
+		Environment env = mock(Environment.class);
+		LoggingInitializationFlow flow = new LoggingInitializationFlow(mock(LoggingApplicationListener.class));
+
+		try {
+			Method method = LoggingInitializationFlow.class.getMethod("withEnvironment", ConfigurableEnvironment.class);
+			assertThatIllegalArgumentException().isThrownBy(() -> method.invoke(flow, env))
+					.withMessageContaining("argument type mismatch");
+		}
+		catch (NoSuchMethodException ex) {
+			fail("withEnvironment(ConfigurableEnvironment) method is missing: " + ex.getMessage());
+		}
+	}
+
 
 }

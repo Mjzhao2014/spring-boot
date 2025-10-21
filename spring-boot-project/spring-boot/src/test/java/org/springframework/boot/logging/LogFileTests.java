@@ -48,17 +48,14 @@ class LogFileTests {
 
 	@Test
 	void loggingFile() {
+		// Provide a relative file name and verify that the absolute path is used
 		PropertyResolver resolver = getPropertyResolver(Collections.singletonMap("logging.file.name", "log.file"));
-		testLoggingFile(resolver);
-	}
-
-	private void testLoggingFile(PropertyResolver resolver) {
 		LogFile logFile = LogFile.get(resolver);
 		Properties properties = new Properties();
 		logFile.applyTo(properties);
-		assertThat(logFile).hasToString("log.file");
+		assertThat(logFile).hasToString(new File("log.file").getAbsolutePath());
 		assertThat(properties.getProperty(LoggingSystemProperty.LOG_FILE.getEnvironmentVariableName()))
-			.isEqualTo("log.file");
+			.isEqualTo(new File("log.file").getAbsolutePath());
 		assertThat(properties.getProperty(LoggingSystemProperty.LOG_PATH.getEnvironmentVariableName())).isNull();
 	}
 
@@ -72,11 +69,13 @@ class LogFileTests {
 		LogFile logFile = LogFile.get(resolver);
 		Properties properties = new Properties();
 		logFile.applyTo(properties);
-		assertThat(logFile).hasToString("logpath" + File.separatorChar + "spring.log");
+		String absoluteDir = new File("logpath").getAbsolutePath();
+		String expectedFile = new File(absoluteDir, "spring.log").getPath();
+		assertThat(logFile).hasToString(expectedFile);
 		assertThat(properties.getProperty(LoggingSystemProperty.LOG_FILE.getEnvironmentVariableName()))
-			.isEqualTo("logpath" + File.separatorChar + "spring.log");
+			.isEqualTo(expectedFile);
 		assertThat(properties.getProperty(LoggingSystemProperty.LOG_PATH.getEnvironmentVariableName()))
-			.isEqualTo("logpath");
+			.isEqualTo(absoluteDir);
 	}
 
 	@Test
@@ -92,11 +91,11 @@ class LogFileTests {
 		LogFile logFile = LogFile.get(resolver);
 		Properties properties = new Properties();
 		logFile.applyTo(properties);
-		assertThat(logFile).hasToString("log.file");
+		assertThat(logFile).hasToString(new File("log.file").getAbsolutePath());
 		assertThat(properties.getProperty(LoggingSystemProperty.LOG_FILE.getEnvironmentVariableName()))
-			.isEqualTo("log.file");
+			.isEqualTo(new File("log.file").getAbsolutePath());
 		assertThat(properties.getProperty(LoggingSystemProperty.LOG_PATH.getEnvironmentVariableName()))
-			.isEqualTo("logpath");
+			.isEqualTo(new File("logpath").getAbsolutePath());
 	}
 
 	private PropertyResolver getPropertyResolver(Map<String, Object> properties) {
