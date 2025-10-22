@@ -516,7 +516,7 @@ class LoggingApplicationListenerTests {
 		assertThat(getSystemProperty(LoggingSystemProperty.EXCEPTION_CONVERSION_WORD)).isEqualTo("conversion");
 		assertThat(getSystemProperty(LoggingSystemProperty.LOG_FILE)).isEqualTo(this.logFile.getAbsolutePath());
 		assertThat(getSystemProperty(LoggingSystemProperty.LEVEL_PATTERN)).isEqualTo("level");
-		assertThat(getSystemProperty(LoggingSystemProperty.LOG_PATH)).isEqualTo(new File("path").getAbsolutePath());
+		assertThat(getSystemProperty(LoggingSystemProperty.LOG_PATH)).isEqualTo("path");
 		assertThat(getSystemProperty(LoggingSystemProperty.PID)).isNotNull();
 	}
 
