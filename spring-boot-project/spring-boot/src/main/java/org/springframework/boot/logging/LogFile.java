@@ -114,14 +114,6 @@ public class LogFile {
 	public static LogFile get(PropertyResolver propertyResolver) {
 		String file = propertyResolver.getProperty(FILE_NAME_PROPERTY);
 		String path = propertyResolver.getProperty(FILE_PATH_PROPERTY);
-		if (StringUtils.hasLength(file)) {
-			// ensure absolute file path if necessary
-			file = new File(file).getAbsolutePath();
-		}
-		if (StringUtils.hasLength(path)) {
-			// ensure absolute directory path if necessary
-			path = new File(path).getAbsolutePath();
-		}
 		if (StringUtils.hasLength(file) || StringUtils.hasLength(path)) {
 			return new LogFile(file, path);
 		}

@@ -1026,9 +1026,8 @@ class LoggingApplicationListenerTests {
 			logFile.applyToSystemProperties();
 
 			// then
-			String expected = new File(relativePath).getAbsolutePath();
 			String actual = System.getProperty("LOG_FILE");
-			assertThat(actual).isEqualTo(expected);
+			assertThat(actual).isEqualTo(relativePath);
 
 		}
 		catch (Exception e) {
