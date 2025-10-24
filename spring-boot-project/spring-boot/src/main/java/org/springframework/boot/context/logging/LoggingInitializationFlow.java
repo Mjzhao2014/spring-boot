@@ -85,9 +85,7 @@ public class LoggingInitializationFlow {
 			return this;
 		}
 		this.loggingSystem = loggingSystem;
-		if (loggingSystem != null) {
-			this.listener.setLoggingSystem(loggingSystem);
-		}
+		this.listener.setLoggingSystem(loggingSystem);
 		logStep("withLoggingSystem", loggingSystem);
 		return this;
 	}
