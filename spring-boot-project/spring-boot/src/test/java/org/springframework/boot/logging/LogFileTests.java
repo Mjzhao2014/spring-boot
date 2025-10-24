@@ -49,10 +49,6 @@ class LogFileTests {
 	@Test
 	void loggingFile() {
 		PropertyResolver resolver = getPropertyResolver(Collections.singletonMap("logging.file.name", "log.file"));
-		testLoggingFile(resolver);
-	}
-
-	private void testLoggingFile(PropertyResolver resolver) {
 		LogFile logFile = LogFile.get(resolver);
 		Properties properties = new Properties();
 		logFile.applyTo(properties);

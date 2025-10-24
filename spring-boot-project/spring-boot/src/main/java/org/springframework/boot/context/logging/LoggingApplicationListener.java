@@ -288,24 +288,52 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 	 * @param classLoader the classloader
 	 */
 	protected void initialize(ConfigurableEnvironment environment, ClassLoader classLoader) {
+		new LoggingInitializationFlow(this)
+				.withEnvironment(environment)
+				.withClassLoader(classLoader)
+				.withLoggingSystem(this.loggingSystem)
+				.execute();
+	}
+
+	LoggingSystem obtainLoggingSystem(ClassLoader classLoader) {
+		if (this.loggingSystem == null) {
+			this.loggingSystem = LoggingSystem.get(classLoader);
+		}
+		return this.loggingSystem;
+	}
+
+	void setLoggingSystem(LoggingSystem loggingSystem) {
+		this.loggingSystem = loggingSystem;
+	}
+
+	void setLogFile(LogFile logFile) {
+		this.logFile = logFile;
+	}
+
+	LoggingSystemProperties getLoggingSystemProperties(ConfigurableEnvironment environment) {
+		return (this.loggingSystem != null) ? this.loggingSystem.getSystemProperties(environment)
+					: new LoggingSystemProperties(environment);
+	}
+
+	void applyLoggingSystemProperties(ConfigurableEnvironment environment) {
 		getLoggingSystemProperties(environment).apply();
+	}
+
+	LogFile initializeLogFile(ConfigurableEnvironment environment) {
 		this.logFile = LogFile.get(environment);
 		if (this.logFile != null) {
 			this.logFile.applyToSystemProperties();
 		}
+		return this.logFile;
+	}
+
+	LoggerGroups createLoggerGroups() {
 		this.loggerGroups = new LoggerGroups(DEFAULT_GROUP_LOGGERS);
-		initializeEarlyLoggingLevel(environment);
-		initializeSystem(environment, this.loggingSystem, this.logFile);
-		initializeFinalLoggingLevels(environment, this.loggingSystem);
-		registerShutdownHookIfNecessary(environment, this.loggingSystem);
+		return this.loggerGroups;
 	}
 
-	private LoggingSystemProperties getLoggingSystemProperties(ConfigurableEnvironment environment) {
-		return (this.loggingSystem != null) ? this.loggingSystem.getSystemProperties(environment)
-				: new LoggingSystemProperties(environment);
-	}
 
-	private void initializeEarlyLoggingLevel(ConfigurableEnvironment environment) {
+	void initializeEarlyLoggingLevel(ConfigurableEnvironment environment) {
 		if (this.parseArgs && this.springBootLogging == null) {
 			if (isSet(environment, "debug")) {
 				this.springBootLogging = LogLevel.DEBUG;
@@ -321,7 +349,7 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 		return (value != null && !value.equals("false"));
 	}
 
-	private void initializeSystem(ConfigurableEnvironment environment, LoggingSystem system, LogFile logFile) {
+	void initializeSystem(ConfigurableEnvironment environment, LoggingSystem system, LogFile logFile) {
 		String logConfig = environment.getProperty(CONFIG_PROPERTY);
 		if (StringUtils.hasLength(logConfig)) {
 			logConfig = logConfig.strip();
@@ -352,7 +380,7 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 		return !StringUtils.hasLength(logConfig) || logConfig.startsWith("-D");
 	}
 
-	private void initializeFinalLoggingLevels(ConfigurableEnvironment environment, LoggingSystem system) {
+	void initializeFinalLoggingLevels(ConfigurableEnvironment environment, LoggingSystem system) {
 		bindLoggerGroups(environment);
 		if (this.springBootLogging != null) {
 			initializeSpringBootLogging(system, this.springBootLogging);
@@ -417,7 +445,7 @@ public class LoggingApplicationListener implements GenericApplicationListener {
 		};
 	}
 
-	private void registerShutdownHookIfNecessary(Environment environment, LoggingSystem loggingSystem) {
+	void registerShutdownHookIfNecessary(Environment environment, LoggingSystem loggingSystem) {
 		if (environment.getProperty(REGISTER_SHUTDOWN_HOOK_PROPERTY, Boolean.class, true)) {
 			Runnable shutdownHandler = loggingSystem.getShutdownHandler();
 			if (shutdownHandler != null && shutdownHookRegistered.compareAndSet(false, true)) {
