@@ -891,6 +891,21 @@ class LoggingApplicationListenerTests {
 	}
 
 	@Test
+	void withLoggingSystemNullClearsCachedInstanceOnListener() {
+		LoggingApplicationListener listener = new LoggingApplicationListener();
+		LoggingSystem loggingSystem = mock(LoggingSystem.class);
+
+		LoggingInitializationFlow flow = new LoggingInitializationFlow(listener)
+				.withLoggingSystem(loggingSystem);
+
+		assertThat(ReflectionTestUtils.getField(listener, "loggingSystem")).isSameAs(loggingSystem);
+
+		flow.withLoggingSystem(null);
+
+		assertThat(ReflectionTestUtils.getField(listener, "loggingSystem")).isNull();
+	}
+
+	@Test
 	void heldOutCreateLoggerGroupsShouldRespectActiveProfiles() {
 		GenericApplicationContext context = new GenericApplicationContext();
 		context.getEnvironment().addActiveProfile("dev");
@@ -1116,7 +1131,8 @@ class LoggingApplicationListenerTests {
 		// given
 		LoggingApplicationListener listener = mock(LoggingApplicationListener.class);
 
-		LoggingInitializationFlow flow = spy(new LoggingInitializationFlow(listener));
+		ConfigurableEnvironment environment = mock(ConfigurableEnvironment.class);
+		LoggingInitializationFlow flow = spy(new LoggingInitializationFlow(listener).withEnvironment(environment));
 
 		doNothing().when(flow).applyLoggingSystemProperties();
 		doNothing().when(flow).initializeLogFile();
@@ -1136,7 +1152,8 @@ class LoggingApplicationListenerTests {
 	@Test
 	void testExecuteWithNullLogFileDoesNotThrowOrSkipLogic() {
 		LoggingApplicationListener listener = mock(LoggingApplicationListener.class);
-		LoggingInitializationFlow flow = spy(new LoggingInitializationFlow(listener));
+		ConfigurableEnvironment environment = mock(ConfigurableEnvironment.class);
+		LoggingInitializationFlow flow = spy(new LoggingInitializationFlow(listener).withEnvironment(environment));
 
 		assertThat(flow).isNotNull();
 
