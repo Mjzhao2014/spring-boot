@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2025 the original author or authors.
+ * Copyright 2012-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,6 +106,7 @@ public class LoggingInitializationFlow {
 	}
 
 	void execute() {
+		Assert.state(this.environment != null, "Environment must not be null");
 		logStep("execute", this.environment, this.classLoader, this.loggingSystem, this.logFile, this.loggerGroups);
 		applyLoggingSystemProperties();
 		initializeLogFile();
@@ -118,17 +119,11 @@ public class LoggingInitializationFlow {
 
 	void applyLoggingSystemProperties() {
 		logStep("applyLoggingSystemProperties", this.environment);
-		if (this.environment == null) {
-			return;
-		}
 		this.listener.applyLoggingSystemProperties(this.environment);
 	}
 
 	void initializeLogFile() {
 		logStep("initializeLogFile", this.environment, this.logFile);
-		if (this.environment == null) {
-			return;
-		}
 		if (this.logFile != null) {
 			this.logFile.applyToSystemProperties();
 			return;
@@ -143,17 +138,11 @@ public class LoggingInitializationFlow {
 
 	void initializeEarlyLoggingLevel() {
 		logStep("initializeEarlyLoggingLevel", this.environment);
-		if (this.environment == null) {
-			return;
-		}
 		this.listener.initializeEarlyLoggingLevel(this.environment);
 	}
 
 	void initializeSystem() {
 		logStep("initializeSystem", this.environment, this.loggingSystem, this.logFile);
-		if (this.environment == null) {
-			return;
-		}
 		LoggingSystem systemToUse = (this.loggingSystem != null) ? this.loggingSystem
 				: this.listener.obtainLoggingSystem(this.classLoader);
 		this.loggingSystem = systemToUse;
@@ -163,17 +152,11 @@ public class LoggingInitializationFlow {
 
 	void initializeFinalLoggingLevels() {
 		logStep("initializeFinalLoggingLevels", this.environment, this.loggingSystem);
-		if (this.environment == null || this.loggingSystem == null) {
-			return;
-		}
 		this.listener.initializeFinalLoggingLevels(this.environment, this.loggingSystem);
 	}
 
 	void registerShutdownHookIfNecessary() {
 		logStep("registerShutdownHookIfNecessary", this.environment, this.loggingSystem);
-		if (this.environment == null || this.loggingSystem == null) {
-			return;
-		}
 		this.listener.registerShutdownHookIfNecessary(this.environment, this.loggingSystem);
 	}
 
@@ -185,4 +168,3 @@ public class LoggingInitializationFlow {
 	}
 
 }
-
